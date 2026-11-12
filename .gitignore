@@ -1,0 +1,14 @@
+# CLion settings
+.idea/
+
+# Build directories
+cmake-build-*/
+build/
+
+# Compiled files
+*.exe
+*.o
+*.obj
+
+# Temporary files
+build-error.txt
