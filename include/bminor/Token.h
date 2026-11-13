@@ -25,6 +25,7 @@ namespace bminor {
         TokenKind kind = TokenKind::Invalid;
         std::string lexeme;
         SourceLocation location;
+        std::string errorMessage = "";
     };
 
 }

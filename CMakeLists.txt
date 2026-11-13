@@ -8,9 +8,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(BMinorCompiler
         main.cpp
         src/SourceCursor.cpp
+        src/Lexer.cpp
         include/bminor/SourceLocation.h
         include/bminor/Token.h
         include/bminor/SourceCursor.h
+        include/bminor/Lexer.h
 )
 
 target_include_directories(BMinorCompiler PRIVATE
