@@ -1,183 +1,168 @@
-
 #include "bminor/Lexer.h"
+#include "bminor/Parser.h"
+#include "bminor/SyntaxHighlighter.h"
 
-#include <cstddef>
-#include <initializer_list>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
+#include <vector>
 
-struct Expected {
-    bminor::TokenKind kind;
-    std::string lexeme;
-    std::string error = "";
-    std::size_t line = 0;
-    std::size_t column = 0;
-};
+namespace {
 
-bool check(const std::string& name,
-           const std::string& source,
-           std::initializer_list<Expected> expected) {
-
-    bminor::Lexer lexer(source, "test.bminor");
-    std::size_t index = 0;
-
-    for (const auto& want : expected) {
-        ++index;
-        auto got = lexer.nextToken();
-
-        if (got.kind != want.kind ||
-            got.lexeme != want.lexeme ||
-            got.errorMessage != want.error ||
-            (want.line != 0 &&
-             got.location.line != want.line) ||
-            (want.column != 0 &&
-             got.location.column != want.column)) {
-
-            std::cerr << "FAIL: " << name
-                      << " at token " << index
-                      << " (got lexeme: [" << got.lexeme
-                      << "], error: [" << got.errorMessage
-                      << "])\n";
-            return false;
-        }
-    }
-
-    auto eof = lexer.nextToken();
-
-    if (eof.kind != bminor::TokenKind::EndOfFile ||
-        eof.location.offset != source.size() ||
-        !eof.lexeme.empty() ||
-        !eof.errorMessage.empty()) {
-
-        std::cerr << "FAIL: " << name << " at EOF\n";
-        return false;
-    }
-
-    std::cout << "PASS: " << name
-              << " (" << index << " tokens)\n";
+bool readFile(const std::string& path, std::string& source) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) return false;
+    std::ostringstream contents;
+    contents << file.rdbuf();
+    source = contents.str();
     return true;
 }
 
-int main() {
-    using K = bminor::TokenKind;
+std::string tokenKindName(bminor::TokenKind kind) {
+    using bminor::TokenKind;
+    switch (kind) {
+        case TokenKind::Keyword: return "Keyword";
+        case TokenKind::Identifier: return "Identifier";
+        case TokenKind::IntegerLiteral: return "IntegerLiteral";
+        case TokenKind::BooleanLiteral: return "BooleanLiteral";
+        case TokenKind::StringLiteral: return "StringLiteral";
+        case TokenKind::CharacterLiteral: return "CharacterLiteral";
+        case TokenKind::Operator: return "Operator";
+        case TokenKind::Delimiter: return "Delimiter";
+        case TokenKind::LineComment: return "LineComment";
+        case TokenKind::BlockComment: return "BlockComment";
+        case TokenKind::Whitespace: return "Whitespace";
+        case TokenKind::Invalid: return "Invalid";
+        case TokenKind::EndOfFile: return "EndOfFile";
+    }
+    return "Unknown";
+}
 
-    if (!check("program", R"(// note
-main: function integer () = {
-    x_1: integer = 42;
-    print "Hi\n", '\q'; /* block */
-    return x_1;
-})", {
-        {K::LineComment, "// note", "", 1, 1},
-        {K::Identifier, "main", "", 2, 1},
-        {K::Delimiter, ":"},
-        {K::Keyword, "function"},
-        {K::Keyword, "integer"},
-        {K::Delimiter, "("},
-        {K::Delimiter, ")"},
-        {K::Operator, "="},
-        {K::Delimiter, "{"},
-        {K::Identifier, "x_1", "", 3, 5},
-        {K::Delimiter, ":"},
-        {K::Keyword, "integer"},
-        {K::Operator, "="},
-        {K::IntegerLiteral, "42"},
-        {K::Delimiter, ";"},
-        {K::Keyword, "print", "", 4, 5},
-        {K::StringLiteral, R"("Hi\n")"},
-        {K::Delimiter, ","},
-        {K::CharacterLiteral, R"('\q')"},
-        {K::Delimiter, ";"},
-        {K::BlockComment, "/* block */"},
-        {K::Keyword, "return", "", 5, 5},
-        {K::Identifier, "x_1"},
-        {K::Delimiter, ";"},
-        {K::Delimiter, "}"}
-    })) return 1;
+std::vector<bminor::Token> collectTokens(const std::string& source,
+                                         const std::string& fileName) {
+    bminor::Lexer lexer(source, fileName);
+    std::vector<bminor::Token> tokens;
+    while (true) {
+        bminor::Token token = lexer.nextToken();
+        tokens.push_back(token);
+        if (token.kind == bminor::TokenKind::EndOfFile) break;
+    }
+    return tokens;
+}
 
-    if (!check("keywords",
-        "array boolean char else for function if integer print return string void while", {
-        {K::Keyword, "array"},
-        {K::Keyword, "boolean"},
-        {K::Keyword, "char"},
-        {K::Keyword, "else"},
-        {K::Keyword, "for"},
-        {K::Keyword, "function"},
-        {K::Keyword, "if"},
-        {K::Keyword, "integer"},
-        {K::Keyword, "print"},
-        {K::Keyword, "return"},
-        {K::Keyword, "string"},
-        {K::Keyword, "void"},
-        {K::Keyword, "while"}
-    })) return 1;
+void printTokens(const std::vector<bminor::Token>& tokens) {
+    for (const auto& token : tokens) {
+        std::cout << token.location.line << ':' << token.location.column
+                  << "  " << tokenKindName(token.kind)
+                  << "  `" << token.lexeme << '`';
+        if (!token.errorMessage.empty()) {
+            std::cout << "  ERROR: " << token.errorMessage;
+        }
+        std::cout << '\n';
+    }
+}
 
-    if (!check("operators and literals",
-        R"(++ -- <= >= == != && || + - * / % ^ < > ! = ( ) [ ] { } ; , : true false iffy _id2 007 "" "a\"b" 'A' '\n' '\0' '\'' '\\' "\q")", {
-        {K::Operator, "++"}, {K::Operator, "--"},
-        {K::Operator, "<="}, {K::Operator, ">="},
-        {K::Operator, "=="}, {K::Operator, "!="},
-        {K::Operator, "&&"}, {K::Operator, "||"},
-        {K::Operator, "+"}, {K::Operator, "-"},
-        {K::Operator, "*"}, {K::Operator, "/"},
-        {K::Operator, "%"}, {K::Operator, "^"},
-        {K::Operator, "<"}, {K::Operator, ">"},
-        {K::Operator, "!"}, {K::Operator, "="},
+void printUsage(const char* programName) {
+    std::cout << "B-Minor Compiler - Phase 1\n\n"
+              << "Usage:\n  " << programName
+              << " <source-file> [options]\n\n"
+              << "Options:\n"
+              << "  --tokens          Print the token stream\n"
+              << "  --ast             Print the Abstract Syntax Tree\n"
+              << "  --html <file>     Create an HTML syntax-highlighted file\n"
+              << "  --ansi            Print syntax-highlighted source in the terminal\n"
+              << "  --check           Only report whether parsing succeeded\n"
+              << "  --help            Show this message\n\n"
+              << "If no output option is selected, the AST is printed by default.\n";
+}
 
-        {K::Delimiter, "("}, {K::Delimiter, ")"},
-        {K::Delimiter, "["}, {K::Delimiter, "]"},
-        {K::Delimiter, "{"}, {K::Delimiter, "}"},
-        {K::Delimiter, ";"}, {K::Delimiter, ","},
-        {K::Delimiter, ":"},
+} // namespace
 
-        {K::BooleanLiteral, "true"},
-        {K::BooleanLiteral, "false"},
-        {K::Identifier, "iffy"},
-        {K::Identifier, "_id2"},
-        {K::IntegerLiteral, "007"},
-        {K::StringLiteral, R"("")"},
-        {K::StringLiteral, R"("a\"b")"},
-        {K::CharacterLiteral, "'A'"},
-        {K::CharacterLiteral, R"('\n')"},
-        {K::CharacterLiteral, R"('\0')"},
-        {K::CharacterLiteral, R"('\'')"},
-        {K::CharacterLiteral, R"('\\')"},
-        {K::StringLiteral, R"("\q")"}
-    })) return 1;
+int main(int argc, char* argv[]) {
+    if (argc < 2 || std::string(argv[1]) == "--help") {
+        printUsage(argv[0]);
+        return argc < 2 ? 2 : 0;
+    }
 
-    if (!check("errors and recovery",
-        "@ & |\r\n'' x\n\"oops\nz\n/* open", {
-        {K::Invalid, "@", "Unexpected character", 1, 1},
-        {K::Invalid, "&", "Unexpected character", 1, 3},
-        {K::Invalid, "|", "Unexpected character", 1, 5},
-        {K::Invalid, "''",
-         "Character literal must contain exactly one character", 2, 1},
-        {K::Identifier, "x", "", 2, 4},
-        {K::Invalid, "\"oops",
-         "Unterminated string literal", 3, 1},
-        {K::Identifier, "z", "", 4, 1},
-        {K::Invalid, "/* open",
-         "Unterminated block comment", 5, 1}
-    })) return 1;
+    const std::string inputPath = argv[1];
+    bool showTokens = false;
+    bool showAst = false;
+    bool showAnsi = false;
+    bool checkOnly = false;
+    std::string htmlPath;
 
-    const std::string id256(256, 'a');
-    const std::string id257(257, 'a');
+    for (int i = 2; i < argc; ++i) {
+        const std::string option = argv[i];
+        if (option == "--tokens") showTokens = true;
+        else if (option == "--ast") showAst = true;
+        else if (option == "--ansi") showAnsi = true;
+        else if (option == "--check") checkOnly = true;
+        else if (option == "--html") {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --html needs an output file name.\n";
+                return 2;
+            }
+            htmlPath = argv[++i];
+        } else if (option == "--help") {
+            printUsage(argv[0]);
+            return 0;
+        } else {
+            std::cerr << "Unknown option: " << option << '\n';
+            printUsage(argv[0]);
+            return 2;
+        }
+    }
 
-    const std::string str256 =
-        "\"" + std::string(256, 'b') + "\"";
+    std::string source;
+    if (!readFile(inputPath, source)) {
+        std::cerr << "Could not open source file: " << inputPath << '\n';
+        return 2;
+    }
 
-    const std::string str257 =
-        "\"" + std::string(257, 'b') + "\"";
+    const std::vector<bminor::Token> tokens = collectTokens(source, inputPath);
+    bminor::Lexer parserLexer(source, inputPath);
+    bminor::Parser parser(parserLexer);
+    std::unique_ptr<bminor::ASTNode> ast = parser.parseProgram();
 
-    if (!check("length limits",
-        id256 + " " + id257 + " " + str256 + " " + str257, {
-        {K::Identifier, id256},
-        {K::Invalid, id257,
-         "Identifier exceeds 256 characters"},
-        {K::StringLiteral, str256},
-        {K::Invalid, str257,
-         "String literal exceeds 256 characters"}
-    })) return 1;
+    if (showTokens) {
+        std::cout << "=== TOKENS ===\n";
+        printTokens(tokens);
+    }
 
-    std::cout << "All Lexer tests passed!\n";
-    return 0;
+    if (showAst || (!showTokens && htmlPath.empty() && !showAnsi && !checkOnly)) {
+        std::cout << "=== ABSTRACT SYNTAX TREE ===\n";
+        bminor::printAst(ast.get());
+    }
+
+    for (const auto& error : parser.errors()) {
+        std::cerr << error.location.file << ':'
+                  << error.location.line << ':'
+                  << error.location.column
+                  << ": error: " << error.message << '\n';
+    }
+
+    if (!htmlPath.empty()) {
+        std::ofstream htmlFile(htmlPath, std::ios::binary);
+        if (!htmlFile) {
+            std::cerr << "Could not create HTML file: " << htmlPath << '\n';
+            return 2;
+        }
+        htmlFile << bminor::SyntaxHighlighter::toHtml(source, tokens, ast.get());
+        std::cout << "HTML output written to: " << htmlPath << '\n';
+    }
+
+    if (showAnsi) {
+        std::cout << bminor::SyntaxHighlighter::toAnsi(source, tokens, ast.get());
+        if (source.empty() || source.back() != '\n') std::cout << '\n';
+    }
+
+    if (parser.errors().empty()) {
+        std::cout << "Parsing completed successfully.\n";
+        return 0;
+    }
+
+    std::cout << "Parsing completed with " << parser.errors().size()
+              << " error(s).\n";
+    return 1;
 }
