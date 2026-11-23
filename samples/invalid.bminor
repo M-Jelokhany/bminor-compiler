@@ -1,0 +1,4 @@
+main: function void() = {
+    value: integer = 10
+    return;
+}
