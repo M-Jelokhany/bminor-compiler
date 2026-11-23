@@ -26,13 +26,16 @@ public:
 private:
     Lexer& lexer_;
     Token current_;
+    Token next_;
     std::vector<ParseError> errors_;
 
+    Token readToken();
     void advance();
     bool isAtEnd() const;
 
     bool check(const std::string& lexeme) const;
     bool check(TokenKind kind) const;
+    bool checkNext(const std::string& lexeme) const;
 
     bool match(const std::string& lexeme);
     bool match(TokenKind kind);
@@ -55,8 +58,12 @@ private:
 
     // Declarations
     std::unique_ptr<ASTNode> parseDeclaration();
-    std::unique_ptr<ASTNode> parseVariableDeclaration();
-    std::unique_ptr<ASTNode> parseFunctionDeclaration();
+    std::unique_ptr<ASTNode> parseVariableDeclaration(
+        const Token& name
+    );
+    std::unique_ptr<ASTNode> parseFunctionDeclaration(
+        const Token& name
+    );
     std::unique_ptr<ASTNode> parseType(bool parameterType = false);
     std::unique_ptr<ASTNode> parseReturnType();
     std::unique_ptr<ASTNode> parseInitializer();
