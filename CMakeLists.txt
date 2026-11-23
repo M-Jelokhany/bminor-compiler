@@ -1,20 +1,19 @@
-cmake_minimum_required(VERSION 4.4)
 
-project(BMinorCompiler)
+cmake_minimum_required(VERSION 3.16)
 
-set(CMAKE_CXX_STANDARD 20)
+project(BMinorCompiler LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(BMinorCompiler
-        main.cpp
-        src/SourceCursor.cpp
-        src/Lexer.cpp
-        include/bminor/SourceLocation.h
-        include/bminor/Token.h
-        include/bminor/SourceCursor.h
-        include/bminor/Lexer.h
+    main.cpp
+    src/SourceCursor.cpp
+    src/Lexer.cpp
+    src/AST.cpp
 )
 
 target_include_directories(BMinorCompiler PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
