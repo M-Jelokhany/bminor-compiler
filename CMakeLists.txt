@@ -13,6 +13,7 @@ add_executable(BMinorCompiler
     src/Lexer.cpp
     src/AST.cpp
     src/Parser.cpp
+    src/SyntaxHighlighter.cpp
 )
 
 target_include_directories(BMinorCompiler PRIVATE
