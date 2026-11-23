@@ -1,0 +1,27 @@
+factorial: function integer(n: integer) = {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+firstValue: function integer(values: array[]integer);
+
+firstValue: function integer(values: array[]integer) = {
+    return values[0];
+}
+
+main: function void() = {
+    values: array[3]integer = {10, 20, 30};
+    index: integer = 0;
+    answer: integer = factorial(5);
+    first: integer = firstValue(values);
+
+    print "factorial =", answer;
+    print "first value =", first;
+
+    for (index = 0; index < 3; index++) {
+        print values[index];
+    }
+}
