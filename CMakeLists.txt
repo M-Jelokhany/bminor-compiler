@@ -12,6 +12,7 @@ add_executable(BMinorCompiler
     src/SourceCursor.cpp
     src/Lexer.cpp
     src/AST.cpp
+    src/Parser.cpp
 )
 
 target_include_directories(BMinorCompiler PRIVATE
